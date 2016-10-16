@@ -1,0 +1,26 @@
+1. Nested claims not allowed as it can cause deadlocks.
+2. Par, parfor and invocation not allowed in claim block as they can have claim statements
+causing deadlocks (by nested claims).
+3. We are not allowing aliasing of channel ends of non-shared channels because, 
+what happens in:
+	par block { a=b, par{a.read(); b.read()}}
+4. Alt blocks cannot have barriers as guards.
+5. Records cannot be instantiated as we would need to give values to its members.
+
+
+Bugs?
+1. Typechecker flags array literals. 
+	int[] x = {3,4,5};
+2. In Record_member, array declaration not working properly.	
+	- ArrayType.depth, is it working?? even for string[][], depth is still one.
+	- if as record member, string[] is generated to be String[][], 1 extra is always added. why? 
+	- simpleRecord.pj (when P extends K and K extends P, should both P and K have all members between P & K?)
+	- Transactions transactions[]; not translating well
+3. How to handle for(;;) kind of forever loops? for while(true)->while(getTrue()). So, the extra semicolon does not get 
+flagged as unreachable code by Java.
+
+
+4. Dr. P comment on review notes:
+*reservedForAlt: dont we need claim flags for both channel ends??
+
+5. Unclaim?

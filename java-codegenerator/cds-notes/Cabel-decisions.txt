@@ -1,0 +1,470 @@
+*************
+MAJOR NOTES  
+*************
+03.20.2016- talk to Dr.Pedersen about these: how to have compiler check them??
+2. yielding procs cannot have return types...can only return void 
+	- if they can, will procs with invocation of them will also yield? how
+	should we handle invocation code generation-schedule that process?
+		- 04.04.2016: Dr.P confirmed that compiler will do this check.
+	
+03.25.2016
+3. To get return values in fields from anonymous classes inside parblocks using context.
+there's a problem in how to make the context thing work...not like this inside the run method:
+Object myContext =null;
+			if(this.context==null) {
+				myContext = this;
+			} else {
+				myContext = (foo)context;
+			}
+
+			myContext._ld0_c = new One2OneChannel<Integer>(); //this line will have error in _ld0_c
+- and without a common way of doing context, I'd have to use if/else in each and every statement/block/chanread/invocation etc.
+- so i did it the way i did.
+
+		- 04.04.2016: Dr. P confirmed that it is fine as java compiler itself puts the context for you.
+		
+		use this prog and do javap -c B\$1
+		class A{
+  2         public void run() {}
+  3 	}
+  4 	public class B{
+  5         int x = 10;
+  6         public void foo() {
+  					x = 100;
+  7                 new A(){
+  8                         public void run() {
+  9                                 x = x + 105;
+ 10                         }
+ 11                 };
+ 12                 System.out.println("x=" + x);
+ 13         }
+ 14         public static void main(String[] args) {
+ 15                 B obj = new B();
+ 16                 obj.foo();
+ 17         }
+ 18 	}
+ 
+ will give:
+ class B$1 extends A {
+  final B this$0;
+  //creates a class B$1 extending the anonymous class A and creates context of B to access x.
+
+
+**********************
+Alternate Block (ALT)
+**********************
+How it works:
+---------------
+1. Has guards and statements and can have extended rendevouzs. e.g: guards:{...} 
+2. Can have 5 types of guards. (a)channel.read (b)timeout (c)skip (d) boolean guard (e)composit
+	(a) channel.read: will be ready when there is data read
+	(b) timeout: will be ready when the set time has run out.
+	(c) skip: is always ready
+	(d) boolean: ready if true
+	(e) composite: boolean & one of the above. the bool has to
+	come infront of others as it is restricted by grammar.
+	(f) The boolean expression cannot have any SIDE EFFECTS.
+	
+3. When a guard is ready, the block following that guard will be executed.
+4. If more than 1 guard is ready, ALT randomly selects one of them.
+5. After the block of that guard is executed, the ALT completes.
+6. Barriers are NOT allowed in ALT as guards. It is possible to do but very
+complicated. So, for now processj grammar does not allow it.
+
+General flow (algorithm):
+ALT::	(1) Check if the guards are ready 
+			(1.1)- if none of the guards are ready, then
+				- yield (NOTE: don't setNotReady) 
+			(1.2)- elseif 1 or more guards are ready:
+				- select one of them randomly
+				- execute the block
+				- make necessary unreserves (for channels) and removeForTimerQueue if any
+				NOTE#1**-after done with stuff, yield one more time with ready to run state.
+				
+				becoz:
+					while(A):
+							a (selects this)
+						ALT
+							b (unreserves this)								a
+						yield(with ready to run so that B gets a chance)
+							
+					while(B):
+							a												b
+						ALT	
+							b
+						
+		END
+
+Channels in ALT:
+
+ONE2ONECHANNEL::
+(1) Check all reads (isReadyToRead)		
+	- if not ready to read:
+		- add itself to reader/list
+		-setnotready
+		-yield
+	- elseif (
+		- set ready=true
+		- set writer=null, reader=null
+		- return data
+				
+ONE2MANYCHANNEL::
+(1) Check all reads (isReadyToReadAltAndReserve)		
+	- if not ready to read:
+		- add itself to reader/list
+		-setnotready
+		-yield
+	- elseif
+		- set ready=true
+		- set writer=null, reader=null
+		- return data
+				
+				
+		- that means, channels will not be claimed by
+		readers if not ready.
+ 
+2. ALT w/ time outs
+
+NOTE: how do ALTs work. anything inside the alt block will be checked for its
+	guards. if one or more guards are ready, random one among them will be selected
+	for execution and ALT will END. if none are ready, process with ALT will 
+	deschedule and the re-start point will be set right above the ALT.
+	
+	ALTs can have - channel read, skip and timeout.
+	
+	TODAY
+	We need to know if we are looking at the ALT for the first time. if first time, and nothing 
+	ready, and has timer, start the timer and put on the queue and yeild.
+	
+	TIMER
+	will need areyoutimedout method for alt.
+		
+- 2 ways of doing it
+
+	1. when t.timeout hits and nothing is ready, start it and put on the timer
+	queue, set process still to isReady and deschedule. When it is rescheduled
+	check if the timeout has already been scheduled/started, check if done, if
+	not, do the same.
+	
+	2. more efficient or Fred way: when alt is entered for the 1st time, c.read
+	and timeout not ready, start timer, put in timer queue, and deschedule. but
+	before you deschedule, give the channels in this information that, it is
+	part of the alt of reader process, same for timer. set itself notReady and 
+	deschedule. When on of the things, c or timer, is ready, have them set
+	the process to isReady. Now, 2 things. Do we let the scheduler to normally
+	execute it, or do we make it execute right away or do we let it know
+	what re-scheduled it and when it gets to alt, just have it execute that thing
+	right away?
+	
+ 	- we haven't implemented removing the process from timer queue when alt ends
+ 	rather then letting it time out.
+ 	
+ 	03.08.2016	
+ 	- what happens when shared channels are used on ALTs??
+ 	
+ 	NOTE: 03.10.16
+	- ALT will:
+		- if none of the guards are ready, then
+			it just yields but it still is ready to run.
+		- about the channels in the guards:
+			- reader:
+				-if nothing to be read
+					-add itself to reader list
+					-setnotready
+					-there is something about reserves here from recent discussions. plunk it in.
+					-yield
+				
+		- that means, channels will not be claimed by
+		readers if not ready.
+ 	
+ 3. for BLocking call i.e I/O
+ 	- spawn a thread. after it is done, come back and set the process ready.
+
+**
+NOTE#1** - We want the ALT and channel.read to yield (w/ ready to run) to be fair and let
+others use of stuff. This is can be an issue 
+
+	
+*****************
+Timer Read Expr
+**************
+Since it looks exactly like channel read expr grammatically, we are
+just using the same thing.	
+i.e. Codegenerator.visitChannelReadExpr
+	
+
+*******************
+Trivial stuff
+*******************
+5. Naming convention for converting locals and formals to global variables:
+	- formals : _fp_<name>
+	- all locals : _lg_<count>_<name> (e.g: _g_0_formalParameter)
+		- make all the locals consecutive since there is no way of knowing blocks.
+	
+	Formal parameter globalization algorithm
+	----------------------------------------
+	1. if <ParamDecl>, rename name to _pd_<name> and update Name node.
+	2. add to gFormalNamesMap <origname, gname>
+	
+	Local declaration globalization algorithm
+	-----------------------------------------
+	1. if <LocalDecl>, 
+		check if gLocalNamesMap contains it
+		if yes, replace, else add to gLocalsMap <origname, gname>	
+		(this is being done automatically by using HashMap where keys are unique)
+		- _ld_<count>_<name> and update Name node.
+	
+	Usage
+	------
+	When Name usage is encountered, check gFormalNamesMap and gLocalNamesMap to see if 
+	it is there. If not, return normal name.
+	
+	
+************************
+RECURSION
+***********************
+If the original call, say f(12)
+
+is turned into 
+
+Process p = new _f(12);
+and then p is put on the run queue and eventually run,
+then couldn't all subsequent calls from within _f to itself just do the same - the fields are not
+static, so we just created a new process, mark it ready, put it on the runque, and suspend ourself after
+marking it not ready. Only thing we have to do is implement the finalize() method to wake up up when
+the call has finished ;-)
+--------
+So, essentially, we would be creating a bunch of processes for each recursive calls?  And to wake up the caller process in finalize(), I guess we would then need some way to register a caller process within a process? just like in the case of timer and channels. 
+
+I don’t see why this wouldn’t work. 
+----------
+no I don’t think we do - I think we just need to fire off the call in a separate process - much like a par block with just one process in - the caller (the process exciting the par block) will be blocked until the par block finished. so
+f(x-1) becomes
+
+par {
+ f(x-1)
+}
+
+
+
+
+
+
+***************************
+MULTI-CORE SCHEDULER RELATED (For Michael)
+***************************
+4. for scheduler to get the things out of not ready queue to ready queue,
+Process.java run should return an arraylist of process references that are
+set to ready
+
+
+
+
+ALT
+- will need array of boolean for cases.
+	- say n cases. bool array[n];
+		- code to evaluate boolean conditions
+		- if missing boolean, it is true...this is the first part of the composite.
+	- this is done only once ...not after rescheduling
+
+04.07.2016
+- the Alt implementation we are doing is PRI ALT and not really the fair alt where truely random guard
+is selected. the difficulty with doing a fair alt is that for shared channels, we would have to 
+make reservations for all the channels (by adding them to the reader list). When one process is done reading,
+it would have to unreserve and then wake the other process up in the list of readers.
+- NOTES on shared read channels in ALT
+	- readers don't really commit to shared read while in alt. they only reserve if the
+	writer has written some data. and though reservation is not directly related with the
+	reserving process (addreader is not called and doesn't need to be), it is certain that 
+	it will get the data since for other readers, that
+	guard index where read() exists will not be chosen at all, as long as it is reserved for
+	some other process.
+	
+	- addReader is called only for shared read channel end that is not in ALT.
+
+
+GENERATED CODE FOR ALT SHOULD LOOK LIKE:
+
+public void run() {
+
+	Alt alt = new ALT(n); //where n=# of cases
+	for each case i in 1..n
+		alt.setBoolGuard(case.bool, i);
+	for each case j in 1..n
+		collect all the timeout stats in an array so as to start them
+		at later point
+	
+	int chosen = alt.getReadyGuardIndex();
+	
+	switch(chosen) {
+		case 0: resume(0); break;
+		case 1: resume(1); break;
+		default: resume(2); break;
+	}
+	label(0);	
+	generated code for case 1.
+	resume(2);
+
+	label(1);
+	generated code for case 2
+	resume(2);
+
+	label(2):
+	if (1st time & chosen == -1)
+		start all the timers;
+	
+	yield(0); //maybe 0 is not needed.
+}
+
+
+********************
+**     TIMERS     **
+********************
+- uses blockingqueue which implementes producer consumer design pattern
+- delayed interface is implemented by runtime.Timer
+
+- i don't think the timer works exactly to the millisecond of timeout. after the timer times out,
+the process just gets set to readytorun. it will not immediatly run but run only when the scheduler
+gets to in. that means if there are lots of processes in the run queue before it, it might take
+some more time than the timeout value. the only way to make this better would be to use priority queue
+datastruct for runqueue.
+	- Dr. Pedersen says this is fine. this is how timeouts work anyway. it only guarantees that the program
+	doesn't move forward until the timeout is done. but after it is done, the program is ready to move
+	forward but depends on scheduler.
+	
+*****************************
+**  Constants/Modifiers    **
+*****************************
+Should the const keyword with localdecl be taken care of? Should we care about modifiers?
+in java, probably no need as compiler generated code is not going to overwrite any
+var whether or not constant. Same with modifiers, we don't need to worry about that
+in codegeneration part.
+
+
+***************************************
+**  Unchecked items for Dr. Pedersen **
+***************************************
+1. protocol multi-extension : codegen already handles it anyway.
+	protocol A{}
+	protocol B extends A{}
+	protocol C extends A, B{} (#error should be added here as B already extends A and it 
+	again being extended by C)
+	
+	
+	
+Channel class note:
+
+synchronized public boolean isReadyToRead(Process p) {
+		// data present and reserved for a specific reader.
+		if (ready && reservedForReader != null)
+			/*
+			 * TODO: can we not be sure that the
+			 * reserved reader is not this one as this
+			 * process is definitely not in ALT as it
+			 * is calling this ready method??
+			 * 
+			 * No!No!No!
+			 * When a read end of multi-read channel is held
+			 * by a process not in an alt, it still adds itself
+			 * to the readers list. Well, if it does add to itself
+			 * to the list, then we are good w/o the below comparison.
+			 * Because, it means that the process has reached its channel.code
+			 * atleast once before, then added itself to list, and yielded. The
+			 * only way it would wake up is by the channel writer. then, if it
+			 * was awoken by the writer, that also means reservedForReade == itself.
+			 * 
+			 * Now, lets look at this scenario. Process A has an alt and has c.read
+			 * of one2many.Process A get to alt, gets added to list, yields. Process B has
+			 * c.read as well. It hasn't reached c.read but it is ahead of A in the
+			 * runqueue. That can happen either by B yielding due to some other
+			 * sync block or by just coming after A in the initial runqueue. A gets 
+			 * rescheduled to the back of the queue.
+			 * 
+			 * Now, Say C writes to c, sets A=ready, and reservedForRead=A, A is awoken
+			 * and waiting to be scheduled so that it can perform the read. But since
+			 * B is ahead in the runqueue, it get to c first, finds it ready, hijacks 
+			 * the data meant for A and moves on. What happens to A? This is not
+			 * acceptable. 
+			 * 
+			 * So, if we have check the reservedForReader as well, then we avoid
+			 * this scenario.
+			 * 
+			 * New update:
+			 * channels inside alt will not add themselves in the list. they only
+			 * reserve?? check this one. 04.11.2016: yes this is true. channels in
+			 * alt do not commit to read by adding itself to reader list. so, the
+			 * freaking long paragraph above has serious holes. dammit!
+			 * 
+			 * Alt is continuously running. so when a channel guard is ready, that
+			 * means there actually is data to be read. so maybe channel
+			 * doesn't even need to setnotready?? check this too.
+			 * 
+			 * 
+			 */
+			return (reservedForReader == p);
+		// data present but is reserved for an alt.
+		else if (reservedForAlt)
+			return false;
+		// not reserved for alt nor for reader, ready determines if ready or not.
+		else
+			return ready;
+	}
+
+NOTE
+=========
+1. running things with library import.
+./pjc /include/std/io -t JVM progwprint.pj
+
+2. when does a process yeild?
+- for the following things:
+	- channel read/write
+	- barrier sync
+	- par block
+	- alt
+	- timer
+
+3. Usage of chan.read/write
+	1. if in the same process by explicit read/write calls on the channels,
+	they need to be wrapped in process and scheduled.
+	2. if just read and already in a process?
+	3. if in a par block? wrap in process and schedule
+
+4. We are wrapping yielding invocations in Par1 block because:
+##for rescheduling, we need an arraylist of jumplables when g.h.a.foo() and foo yeilds such 
+that the control needs to go all the way back to ‘g’ and we need to go back to foo from ‘g’.
+	- no need list of jumblabels. we are doing this differently by making each process
+	that calls a yeilding process to yeild itself.
+
+	
+TODO:
+====================
+
+MAJOR
+========
+5. Add .properties file to set external variables: for example, we could
+set the output directory for the compiled classes. bin/CodeGenerated. That will
+in turn help the asmifier to find the class files for the recent compilation.
+-------
+--------
+6. Wrong invocation doesn't seem to be being caught by NameChecker and TypeChecker for
+procs with chan as params.
+-------------
+7. For asmifier, I think we need a way to first compile and generate .class files. since im using
+eclipse auto build currently, that's not an issue. but for the actual process, we are only
+generating .java file. compile process is not done.
+	- there is a java library called JavaCompiler that can be called from
+	user program to compile classes. use this.
+9. come up with a proper packaging structure for codegeneration
+10. create runtime jar instead of having it in the compiler project
+------------------------------------
+11. Instrumenter currently goes through each and every class. There might be classes that don't have jump/labels.
+and this might make compilation slow. 
+	- to fix this, we might want to have a classvisitor to scan and see if a class needs intrumentatoin.
+	- refer to javagoto.transformer.visitor.
+
+	
+*************************************************
+	Important future work related to code
+*************************************************
+Look at the JCSP classes and do similar javadocs and comments:
+http://projects.cs.kent.ac.uk/projects/jcsp/svn/jcsp/trunk/src/org/jcsp/lang/
