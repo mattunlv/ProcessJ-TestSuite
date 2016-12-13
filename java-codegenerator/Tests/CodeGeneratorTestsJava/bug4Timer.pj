@@ -1,0 +1,34 @@
+import std.io;
+
+public proc void foo(long seed) [yield=true]{
+
+  timer t;
+  println("A:");
+  println(t.read());
+
+  t.timeout(1000);
+
+  println("B:");
+  println(t.read());
+  println("Hello");
+}
+
+public proc void main(string args[]) [yield=true]{
+  foo(0);
+
+  chan<int> c;
+  par {
+    bar(c.read);
+    baz(c.write);
+  }
+}
+
+proc void bar(chan<int>.read cr) {
+
+  println("reading from channel:" + cr.read());
+
+}
+
+proc void baz(chan<int>.write cw) {
+  cw.write(4);
+}

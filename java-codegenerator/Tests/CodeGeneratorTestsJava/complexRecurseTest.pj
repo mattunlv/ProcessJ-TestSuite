@@ -3,12 +3,20 @@ import std.io;
 //mutual recursion --------
 proc void a(int n)[yield=true] {
 	println("a:" + n);
+	if (n==5) {
+		println("hello");
+		n = 10;
+		++n;
+	} else {
+		println("world");
+	}
+
 	if (n==0)
 		return;
 
 	b(n-1);
 	p(n-1);
-} 
+}
 proc void b(int n)[yield=true] {
 	println("b:" + n);
 	if (n==0)
@@ -73,7 +81,7 @@ proc void n(int i)[yield=true] {
 		return n;
 	foo(invRec(n-1));
 	return n;
-		
+
 }
 proc void foo(int n) {
 	println("foo:" + n);

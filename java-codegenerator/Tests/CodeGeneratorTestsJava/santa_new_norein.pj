@@ -1,0 +1,217 @@
+import std.io;
+import std.random;
+
+const int N_ELVES = 10;
+const int G_ELVES = 3;
+
+const int WORKING_TIME = 2000;
+const int CONSULTATION_TIME = 2000;
+
+
+protocol Elf_msg {
+  working:   { int id; }
+  elf_ready: { int id; }
+  waiting:   { int id; }
+  consult:   { int id; }
+  elf_done:  { int id; }
+}
+
+protocol Santa_msg {
+  knock1: { }
+  elves_ready:    { }
+  greet:          { int id; }
+  consulting:     { }
+  santa_done:     { }
+  goodbye:        { int id; }
+  kn:             { }
+}
+
+protocol Message extends Elf_msg, Santa_msg;
+
+proc void display (chan<Message>.read in) [yield=true]{
+  Message msg;
+  while (true) {
+    msg = in.read();
+    switch(msg) {
+      case kn:
+      println("After knock");
+        break;
+     case knock1:
+       println("After knock in santa");
+        break;
+
+      case working:
+        println("                   Elf-" + msg.id + ": working");
+        break;
+
+      case elf_ready:
+        println("                   Elf-" + msg.id + ": need to consult Santa, ;(");
+        break;
+
+      case waiting:
+        println("                   Elf-" + msg.id + ": in the waiting room...");
+        break;
+
+      case consult:
+        println("                   Elf-" + msg.id + ": about these toys...??");
+        break;
+
+      case elf_done:
+        println("                   Elf-" + msg.id + ": OK...we'll build it, bye...");
+        break;
+
+      case elves_ready:
+        println("Santa: Ho-ho-ho...some elves are here!");
+        break;
+
+      case greet:
+        println("Santa: hello elf:" + msg.id);
+        break;
+
+      case consulting:
+        println("Santa: consulting with elves...");
+        break;
+
+      case santa_done:
+        println("Santa: OK, all done - thanks!");
+        break;
+
+      case goodbye:
+        println("Santa: goodbye elf:" + msg.id);
+        break;
+    }
+  }
+}
+
+proc void p_barrier_knock (const int n, chan<boolean>.read a, chan<boolean>.read b,
+                           chan<boolean>.write knock, shared chan<Santa_msg>.write report) [yield=true]{
+  while (true) {
+    for (int i=0; i<n; i++) {
+      boolean any;
+      any = a.read();
+    }
+
+  knock.write (true);
+
+       claim (report) report.write(new Santa_msg{kn: });
+
+    for (int i=0; i<n; i++) {
+      boolean any;
+      any = b.read();
+    }
+  }
+}
+
+proc void p_barrier (const int n, chan<boolean>.read a, chan<boolean>.read b) [yield=true]{
+  while (true) {
+    for (int i=0; i<n; i++) {
+      boolean any;
+      any = a.read();
+    }
+    for (int i=0; i<n; i++) {
+      boolean any;
+      any = b.read();
+    }
+  }
+}
+
+proc void syncronize (shared chan<boolean>.write a, shared chan<boolean>.write b) [yield=true]{
+  claim (a)
+    a.write(true);
+  claim (b)
+    b.write(true);
+}
+
+proc void elf (const int id, const long seed, shared chan<boolean>.write elves_a,
+               shared chan<boolean>.write elves_b, shared chan<boolean>.write santa_elves_a,
+               shared chan<boolean>.write santa_elves_b, shared chan<int>.write to_santa,
+               shared chan<Elf_msg>.write report)[yield=true] {
+
+  long my_seed = seed;
+  long wait = WORKING_TIME;
+
+  while (true) {
+	//claim (report) report.write(new Elf_msg{working: id});     // <------- seems to work if we remove this line!
+	random_wait(wait, my_seed);
+	claim (report) report.write(new Elf_msg{elf_ready: id});
+	syncronize(elves_a, elves_b);
+	claim (to_santa) to_santa.write(id);
+	syncronize(santa_elves_a, santa_elves_b);
+	//claim (report) report.write(new Elf_msg{consult: id});
+	//syncronize(santa_elves_a, santa_elves_b);
+	//claim (report) report.write(new Elf_msg{elf_done: id});
+	claim (to_santa) to_santa.write(id);
+  }
+}
+
+proc void santa (const long seed,
+     chan<boolean>.read knock,
+     chan<int>.read from_elf,
+     shared chan<boolean>.write santa_elves_a,
+     shared chan<boolean>.write santa_elves_b,
+     shared chan<Santa_msg>.write report) [yield = true]{
+
+  long my_seed = seed;
+  timer tim;
+  long t, wait;
+
+  while (true) {
+	int id;
+	boolean answer;
+	pri alt {
+		answer = knock.read() : {
+		 claim (report) report.write(new Santa_msg{knock1: });
+			claim (report) report.write(new Santa_msg{elves_ready: });
+			for (int i=0; i<G_ELVES; i++) {
+				id = from_elf.read();
+				claim (report) report.write(new Santa_msg{greet: id});
+			}
+			syncronize(santa_elves_a, santa_elves_b);
+			claim (report) report.write(new Santa_msg{consulting: });
+			random_wait(CONSULTATION_TIME, my_seed);
+			claim (report) report.write(new Santa_msg{santa_done: });
+			syncronize(santa_elves_a, santa_elves_b);
+			for (int i=0; i<G_ELVES; i++)
+				id = from_elf.read({
+					claim (report) report.write(new Santa_msg{goodbye: id});});
+		}
+	}
+  }
+}
+
+proc void random_wait(long max_wait, long seed)[yield=true] {
+  timer t;
+  long wait;
+  wait = longRandom();
+  wait = (wait < 0 ? -wait : wait);
+  t.timeout(wait % max_wait);
+}
+
+proc void main(string[] args)[yield=true] {
+  timer tim;
+  long seed;
+  seed = tim.read();
+  seed = (seed >> 2) + 42;
+  initRandom(seed);
+
+  shared write chan<boolean> elves_a, elves_b;
+  chan<boolean> knock;
+  shared write chan<boolean> santa_elves_a, santa_elves_b;
+  shared write chan<int> elf_santa;
+  shared write chan<Message> report;
+
+  println("SANTA OUTPUT       ELF OUTPUT      ");
+  println("-----------------------------------------------------------------------------------");
+
+  par {
+        santa(seed, knock.read, elf_santa.read,
+                        santa_elves_a.write, santa_elves_b.write, report.write);
+
+	par for (int id_e=0; id_e < N_ELVES; id_e++)
+		elf(id_e, seed, elves_a.write, elves_b.write, santa_elves_a.write,
+			santa_elves_b.write, elf_santa.write, report.write);
+	p_barrier_knock(G_ELVES, elves_a.read, elves_b.read, knock.write, report.write);
+	p_barrier(G_ELVES+1, santa_elves_a.read, santa_elves_b.read);
+	display (report.read);
+  }
+}

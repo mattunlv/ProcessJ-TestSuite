@@ -1,0 +1,18 @@
+import std.io;
+
+
+proc void foo() {
+
+}
+
+proc void bar()[yield=true] {
+
+}
+
+proc void foo() {
+  char s = '\uFFFF';
+}
+
+proc void main(string[] args) {
+  println("hello world");
+}

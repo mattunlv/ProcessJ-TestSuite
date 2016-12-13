@@ -4,19 +4,19 @@
 proc void main(){
   int x = 0;
 
-  while(true){
-    x++;
-    if( x % 2 == 0)
-      continue;
-  }
-  
+  //while(true){
+   // x++;
+    //if( x % 2 == 0)
+     // continue;
+  //}
+
   //Java will error here saying unreachable code.
-  while(true)
-    continue;
+  //while(true)
+   // continue;
 
   do{
     continue;
   }while(true);
 
-  return;
+  //return;
 }

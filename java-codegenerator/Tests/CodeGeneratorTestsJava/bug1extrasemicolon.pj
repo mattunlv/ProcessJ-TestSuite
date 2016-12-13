@@ -1,0 +1,22 @@
+// This is the original buggy program
+// that invoked the whole removing semicolon from
+// string template move.
+
+proc void main(){
+  int z = 0;
+  while(z<10)
+  {
+    if(z==5)
+    {
+      z++;
+		  continue;
+    }
+    else
+    {
+      z--;
+		  break;
+    }
+  }
+  return;
+}
+

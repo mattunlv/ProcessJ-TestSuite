@@ -1,0 +1,76 @@
+public proc void philosopher(const int id, chan<boolean>.write left, chan<boolean>.write right,
+                             chan<boolean>.write down, chan<boolean>.write up) [yield=true] {
+  while (true) {
+    // Think for some time
+    down.write(true);    // try to sit down
+    par {
+      left.write(true);  // pick up left fork
+      right.write(true); // pick up right fork
+    }
+    // Eat for spome time
+    par {
+      left.write(true);  // put down the left fork
+      right.write(true); // put down the right fork
+    }
+    up.write(true);      // get up
+  }
+}
+
+public proc void fork(chan<boolean>.read left, 
+                      chan<boolean>.read right) [yield=true] {
+  while (true) {
+    boolean any;
+    alt {
+      any = left.read() :   // was picked up by the philosopher to the left 
+      {  left.read(); }       // wait to get put down again
+      any = right.read() :  // was picked up by the philosopher to the right
+      {  right.read(); }       // wait to get put down again
+    }
+  }
+}
+
+
+public proc void guard(chan<boolean>.read up[],
+                       chan<boolean>.read down[]) {
+  int seated = 0;
+  boolean any;
+  while (true) {
+    alt {
+      (seated < 4) && any = down[0].read(): { seated++; }
+      (seated < 4) && any = down[1].read(): { seated++; }
+      (seated < 4) && any = down[2].read(): { seated++; }
+      (seated < 4) && any = down[3].read(): { seated++; }
+      (seated < 4) && any = down[4].read(): { seated++; }
+      any = up[0].read() : { seated--; }
+      any = up[1].read() : { seated--; }
+      any = up[2].read() : { seated--; }
+      any = up[3].read() : { seated--; }
+      any = up[4].read() : { seated--; }
+    }
+  }
+}
+
+public proc void main(string args[]) [yield=true] {
+  chan<boolean> left[] = new chan<boolean>[5];  // channels to the forks on the left
+  chan<boolean> right[] = new chan<boolean>[5]; // channels to the forks on the right
+  chan<boolean> up[] = new chan<boolean>[5];
+  chan<boolean> down[] = new chan<boolean>[5];
+  
+  chan<boolean>.read ups[];
+  chan<boolean>.read downs[];
+  for (int i=0; i<5; i++) {
+    downs[i] = down[i].read;
+    ups[i] = up[i].read;
+  }
+
+
+  // run 5 philisophers and 5 fork processes concurrently
+  par {
+    guard(ups, downs);
+    par for(int i=0; i<5; i++) {
+      philosopher(i, left[i].write, right[i].write, down[i].write, up[i].write);
+      fork(left[i].read, right[(i+1)%5].read);
+    }
+  }
+}
+

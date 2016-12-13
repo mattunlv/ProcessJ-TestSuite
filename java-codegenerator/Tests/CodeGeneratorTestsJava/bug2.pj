@@ -1,0 +1,87 @@
+import std.io;
+
+/*proc void altBlocks() {
+
+  int any = 0;
+  chan<int>.read left;
+  chan<int>.read right;
+
+  alt {
+    any = left.read() :
+     left.read();
+
+    any = right.read() :
+      right.read();
+
+  }
+}*/
+
+proc void checkArrayLiteral() {
+  int[] x = new int[] {3,4,5}; // ** fix this **
+
+  int[][] y = new int[2][5];
+
+}
+
+proc void foo() {
+  for(;;)
+    ;
+}
+
+public proc void integrate(chan<int>.read in,
+                           chan<int>.write out) {
+  int total = 0;
+  int x = 0;
+  chan<int>.read in1;
+
+  for (int i=0; i< x + (in.read() * 5) + in1.read();i++) {
+    println("hello world");
+
+  }
+
+   //for (int i=0; i<10; i++) {
+    // boolean any;
+   //}
+
+  //while (true) {
+   // out.write(total += in.read()); //assignment
+
+    //out.write(total + in.read()); //binaryExpr
+
+    //out.write(in.read()); //chanReadExpr
+  //}
+
+  //out.write(1+in.read());
+
+  //for (int i=0; i< (in.read()+1); i++) {
+   // x = total + 1;
+  //}
+
+}
+
+public proc void source(chan<int>.write out) {
+  int i = 0;
+  while (true) {
+    out.write(i);
+    i=i+1;
+  }
+}
+
+public proc void sink(chan<int>.read in) {
+  while (true) {
+    int x;
+    x = in.read();
+    println(x);
+  }
+}
+
+public proc void main1(string args[]) {
+  chan<int> a,b;
+   par {
+    source(a.write);
+    integrate(a.read, b.write);
+    sink(b.read);
+  }
+}
+
+

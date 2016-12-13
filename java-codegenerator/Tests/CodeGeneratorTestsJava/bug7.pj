@@ -1,0 +1,38 @@
+proc void notGate(chan<boolean>.read in, chan<boolean>.write out)[yield=true]{
+  boolean x=false;
+
+  x = in.read();
+
+  out.write(!x);
+
+}
+
+proc void foo(boolean b) [yeild=true]{
+  boolean b = false;
+  while(!b) {
+
+  }
+
+  do {
+
+  } while (!b);
+
+}
+
+proc void bar(int x) {
+
+}
+
+proc void baz() {
+  boolean b = true;
+  int x = 5;
+
+  if (!b) {
+    x = 10;
+  }
+
+  foo(!b);
+  bar(++x);
+  bar(x++);
+
+}

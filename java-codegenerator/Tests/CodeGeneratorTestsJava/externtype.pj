@@ -1,0 +1,16 @@
+
+extern javax.swing.JFrame Canvas
+
+proc void foo() [yield=true] {
+
+  Canvas myCanvas;
+  int x;
+  for(;;) {
+    x = 1;
+  }
+
+}
+
+proc void bar(Canvas c) {
+
+}

@@ -1,0 +1,25 @@
+proc void bar() {
+  int x;
+  chan<int> c;
+
+  x += c.read.read();
+}
+
+proc void foo() {
+
+	int x = 1;
+
+	while(x<5) {
+		if (x == 1) {
+			break;
+		} else {
+			x += 2;
+			continue;
+		}
+	}
+
+	int i;
+	for (i=0; i<5; i++) {
+		i++;
+	}
+}

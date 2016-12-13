@@ -1,0 +1,9 @@
+public proc void integrate(chan<int>.read in) {
+  int total = 0;
+  int t2 = 0;
+  while (true) {
+    //total = (total + in.read()) * t2;
+    total = total + t2 + in.read();
+    //total = total + in.read();
+  }
+}

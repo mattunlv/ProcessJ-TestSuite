@@ -1,0 +1,13 @@
+import std.io;
+
+public proc void foo(long seed) [yield=true]{
+  timer t;
+  println("A: " + t.read());
+  t.timeout(1);
+  println("B: " + t.read());
+}
+
+public proc void main(string args[]) {
+  chan<int> p[];
+  p = new chan<int>[200];
+}

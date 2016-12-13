@@ -1,0 +1,6 @@
+
+proc void foo() {
+	chan<boolean> cb;
+
+	cb.read.read();
+}

@@ -1,0 +1,21 @@
+import std.io;
+
+public proc void main(string args[]) {
+  int a;
+  do {
+    println("hello");
+    //break;
+  } while (1==1);
+  a = 5; //after dostat forever loop is turned on, reachability will error out here.
+  println("world " + a);
+
+
+  /*
+  while(true) {
+    println("hello world");
+  }
+
+  println("oops");
+  */
+
+}

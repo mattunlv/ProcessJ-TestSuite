@@ -1,0 +1,6 @@
+//Create this issue on github
+proc void foo() {
+  chan<int> c;
+  int x = c.read.read();
+}
+

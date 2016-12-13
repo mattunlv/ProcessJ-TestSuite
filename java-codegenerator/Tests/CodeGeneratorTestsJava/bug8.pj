@@ -1,0 +1,66 @@
+import std.io;
+
+
+// do the same tests for dostat and ifStat
+// while(c.read() < 5)
+// while ((lengthsq < 4.0) && (count < max)
+// while (foo() < 10)
+// while (c.read());
+
+proc void foo(chan<boolean>.read cr) [yeild=true] {
+  float lengthsq = 4;
+  int count = 10;
+  int max = 5;
+
+  //while (cr.read()) {
+  //  println("read a value");
+  //}
+
+  while (1+ 1 <= 2) {
+
+  }
+
+  //if (cr.read()) {
+  //if ((lengthsq < 4) && (count < max)) {
+
+  //}
+
+  //do {
+      //println("dostat fix");
+  //} while(cr.read() < 5);
+  //} while(cr.read());
+  //} while(getbool());
+  //} while(getbool() && true);
+
+}
+
+proc int baz(){
+  int x = 0;
+  return x++;
+}
+
+proc boolean getbool() {
+  return true;
+}
+
+proc void bar(chan<boolean>.write cw) {
+
+  int x = 0;
+  while(x < 5) {
+    println("writing true");
+    cw.write(true);
+  }
+
+  cw.write(false);
+}
+
+proc void main(string[] args) {
+
+  chan<boolean> c;
+
+  par {
+    foo(c.read);
+   bar(c.write);
+  }
+
+}

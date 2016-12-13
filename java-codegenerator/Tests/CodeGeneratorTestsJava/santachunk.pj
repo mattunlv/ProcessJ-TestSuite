@@ -51,38 +51,38 @@ proc void display (chan<Message>.read in) [yield=true]{
   while (true) {
     msg = in.read();
     switch(msg) {
-   		case holiday:  
+   		case holiday:
       		println("                                                        Reindeer-" + msg.id + ": on holiday ... wish you were here");
       		break;
    		case deer_ready:
       		println("                                                        Reindeer-" + msg.id + ": back from holiday ... ready for work");
       		break;
-    
-   		case deliver: 
-   			println("                                                        Reindeer-" + msg.id + ": delivering toys...la-di-da-di-da-di-da"); 
+
+   		case deliver:
+   			println("                                                        Reindeer-" + msg.id + ": delivering toys...la-di-da-di-da-di-da");
    			break;
 
-   		case deer_done: 
-   			println("                                                        Reindeer-" + msg.id + ": all toys delivered...want a holiday"); 
+   		case deer_done:
+   			println("                                                        Reindeer-" + msg.id + ": all toys delivered...want a holiday");
    			break;
-   			
-   		case working: 
-   			println("                            Elf-" + msg.id + ": working"); 
+
+   		case working:
+   			println("                            Elf-" + msg.id + ": working");
    			break;
-   		
+
    		case elf_ready:
       		println("                            Elf-" + msg.id + ": need to consult Santa, ;(");
       		break;
-   		
-   		case waiting: 
-   			println("                            Elf-" + msg.id + ": in the waiting room..."); 
+
+   		case waiting:
+   			println("                            Elf-" + msg.id + ": in the waiting room...");
    			break;
 
-   		case consult: 
-   			println("                            Elf-" + msg.id + ": about these toys...??"); 
+   		case consult:
+   			println("                            Elf-" + msg.id + ": about these toys...??");
    			break;
 
-   		case elf_done: 
+   		case elf_done:
    			println("                            Elf-" + msg.id + ": OK...we'll build it, bye...");
    			break;
 
@@ -96,7 +96,7 @@ proc void display (chan<Message>.read in) [yield=true]{
    		case consulting: println("Santa: consulting with elves..."); break;
    		case santa_done: println("Santa: OK, all done - thanks!"); break;
    		case goodbye: println("Santa: goodbye elf:" + msg.id); break;
-    
+
     }
   }
 }
@@ -165,15 +165,15 @@ proc void reindeer (const int id,//ok
         shared chan<Reindeer_msg>.write report) [yield=true]{ //ok
 	long my_seed = seed;
 	timer tim;
-	long t; 
+	long t;
 	long wait = HOLIDAY_TIME;
 
 	while (true) {
   		claim (report)
       		report.write(new Reindeer_msg{ holiday: id });
-  		
+
   		random_wait(wait, my_seed);
-  		
+
   		claim (report)
       		report.write(new Reindeer_msg{ deer_ready: id });
 
@@ -213,7 +213,7 @@ proc void elf (const int id,
     timer tim;
     long t;
     long wait = WORKING_TIME;
-    
+
     while (true) {
 		claim (report)
 			report.write(new Elf_msg{ working: id});
@@ -237,7 +237,7 @@ proc void elf (const int id,
 			report.write(new Elf_msg{ consult: id });
 
   		syncronize (santa_elves_a, santa_elves_b);
-  		
+
   		claim (report)
       		report.write(new Elf_msg{ elf_done: id });
 
@@ -258,7 +258,7 @@ proc void santa (const long seed, //ok
     long my_seed = seed;
     timer tim;
     long t, wait;
-    
+
     while (true) {
 	  int id;
 	  boolean any;
@@ -268,63 +268,63 @@ proc void santa (const long seed, //ok
 	       			report.write(new Santa_msg{ reindeer_ready: });
 	       			report.write(new Santa_msg{ harness: id });
 	   			}
-	
+
 	    		for (int i=0; i< G_REINDEER-1; i++) {
 	        		id = from_reindeer.read();
 	        		claim (report)
 	        			report.write(new Santa_msg{ harness: id });
 	    		}
-	
+
 	    		claim (report)
 	    			report.write(new Santa_msg{mush_mush:});
-	
+
 	    		sync (santa_reindeer);
-	
+
 	    		t = tim.read();
 	    		tim.timeout (1000);
-	
+
 	    		claim (report)
 	    			report.write (new Santa_msg{woah:});
-	
+
 	    		sync (santa_reindeer);
-	
+
 	    		for (int i=0; i< G_REINDEER; i++) {
 	        		id = from_reindeer.read({
 	          			claim (report)
 	          				report.write (new Santa_msg{ unharness:id });
 	      			});
-	      			
+
 	      			/*id = from_reindeer.read();
 	          		claim (report)
 	          			report.write (new Santa_msg{ unharness:id });
 	          			*/
 	    		}
 	      	}
-	
+
 	      any = knock.read (): { // 3 Elves ready
 	    		claim (report)
 	    			report.write (new Santa_msg{ elves_ready: });
-	
+
 	    		for (int i=0; i<G_ELVES; i++) {
 	        		id = from_elf.read();
 	        		claim (report)
 	      				report.write (new Santa_msg{ greet: id });
 	    		}
-	
+
 				//#missing: any = knock.read();
 	    		claim (report)
 	    			report.write (new Santa_msg{ consulting: });
-	
+
 	    		syncronize (santa_elves_a, santa_elves_b);
-	
+
 	    		t = tim.read();
 	    		tim.timeout (1000);
-	
+
 	    		claim (report)
 	    			report.write (new Santa_msg{ santa_done: });
-	
+
 	    		syncronize (santa_elves_a, santa_elves_b);
-	
+
 	    		for (int i=0; i<G_ELVES; i++) {
 	        		id = from_elf.read ({
 	          				claim (report)
@@ -345,7 +345,7 @@ proc void random_wait(long max_wait, long seed)[yield=true] {
 	long wait;
 	initRandom(seed);
 	wait = longRandom();
-	t.timeout(wait % max_wait);
+	t.timeout((wait % max_wait));
 }
 
 proc void main(string[] args)[yield=true] {
@@ -353,16 +353,16 @@ proc void main(string[] args)[yield=true] {
     long seed;
     seed = tim.read();
     seed = (seed >> 2) + 42;
-    
+
     barrier just_reindeer, santa_reindeer;//ok
-    
+
     shared write chan<boolean> elves_a, elves_b;//o
     chan<boolean> knock;//ok - just.elves.ping
     shared write chan<boolean> santa_elves_a, santa_elves_b; //ok
     shared write chan<int> reindeer_santa, elf_santa; //ok
     shared write chan<Message> report; //ok
     //#missing //shared ! CHAN BOOL just.elves.a.ack
-    
+
     par { //par1:5
   		par enroll (santa_reindeer) { //par2:2
 
@@ -370,8 +370,8 @@ proc void main(string[] args)[yield=true] {
        				reindeer_santa.read, elf_santa.read, santa_reindeer,
        				santa_elves_a.write, santa_elves_b.write, report.write);
 
-		    par for (int i=0; i<N_REINDEER; i++) 
-			enroll (just_reindeer, santa_reindeer)
+		    par for (int i=0; i<N_REINDEER; i++)
+			             enroll (just_reindeer, santa_reindeer)
         		reindeer (i, seed + i, just_reindeer, santa_reindeer, reindeer_santa.write, report.write);
   		}
 
@@ -380,7 +380,7 @@ proc void main(string[] args)[yield=true] {
      			elves_a.write, //ok
      			//#missing just.elves.a.ack!
      			elves_b.write, //ok
-     			santa_elves_a.write, //ok 
+     			santa_elves_a.write, //ok
      			santa_elves_b.write, //ok
      			elf_santa.write, //ok
      			report.write); //ok
